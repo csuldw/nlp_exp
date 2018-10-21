@@ -18,6 +18,9 @@ def get_texts(documents):
     texts = [doc.lower().split() for doc in documents]
     return texts
 
+"""
+输入texts是分词之后的文本内容
+"""
 def get_corpus_and_word_dict(texts):
     word_dict = corpora.Dictionary(texts)    #自建词典
     
