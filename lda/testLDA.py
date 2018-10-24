@@ -39,6 +39,7 @@ if __name__ == "__main__":
     tfidf = models.TfidfModel(corpus)
     corpus_tfidf = tfidf[corpus]
     
+    print(corpus)
     print(corpus_tfidf)
     lda = LdaModel(corpus=corpus_tfidf, id2word=word_dict, num_topics=10)
     doc_topic = [a for a in lda[corpus]]
