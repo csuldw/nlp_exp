@@ -17,6 +17,7 @@ from sklearn.svm import SVC, LinearSVC,  NuSVC
 from sklearn.naive_bayes import  MultinomialNB, BernoulliNB
 from sklearn.linear_model import  LogisticRegression
 from sklearn.metrics import  accuracy_score
+from langdetect import detect
 
 class SentimentAnalysis():
     
@@ -44,7 +45,7 @@ class SentimentAnalysis():
         return dict((k, True) for k,v in tags)
     
     #获取数据集
-    def _build_dataset(self, input_file):
+    def _build_train_data(self, input_file):
         with open(input_file , "r", encoding='UTF-8') as f: 
             train_data = json.load(f)
         train_sentences = train_data["sentences"]
@@ -84,11 +85,11 @@ class SentimentAnalysis():
         return self
     
     #预测
-    def predict(self, test_dataset):
+    def predict_many(self, test_dataset):
         predicted_label = self.classifier.classify_many(test_dataset) #给出预测的标签
         return predicted_label
     
-    #计算精度
+    #计算精度[]
     def acc_score(self, predicted, labels):
         n = 0
         s = len(predicted)
@@ -97,14 +98,49 @@ class SentimentAnalysis():
                 n = n+1
         return n/s #分类器准确度 
     
+    #建立测试集
+    def _build_test_data(self, test_file):
+        with open(input_file , "r", encoding='UTF-8') as f: 
+                row_data = json.load(f)
+        #info = row_data["info"]
+        sentences = row_data["sentences"]
+        
+        sentences_lang = []
+        test_sentences = []
+        for sentence in sentences:
+            text = sentence["text"]
+            tags = self._get_tags(self._filter(text))
+            lang_type = detect(text)
+            #使用langdetect进行语言检测
+            if lang_type == 'zh-cn':
+                sentence["language_label"] = 2
+            elif lang_type == 'en':
+                sentence["language_label"] = 0
+            elif lang_type == '':
+                sentence["language_label"] = 1
+            else:
+                print("language detect error: ", text)
+            test_sentences.append(tags)
+            sentences_lang.append(sentence)
+            
+        row_data["sentences"] = sentences_lang 
+        return row_data, test_sentences
     
+    #将数据模拟成训练集的格式，便于提交代码
+    def simulation_data(self, row_data, predict_label):
+        sentences = row_data["sentences"]
+        for i in range(len(sentences)):
+            sentences[i]["emotion_label"] = predict_label
+        row_data["sentences"] = sentences
+        return row_data
+            
 #3.训练模型
 if __name__ == "__main__":
     stopwords = [line.strip() for line in open("stopwords.txt", 'r', encoding='UTF-8')]
    
     clf = SentimentAnalysis(stopwords=stopwords)
     input_file = "../data/train.json"
-    anger_data, fear_data, joy_data, sadness_data = clf._build_dataset(input_file)
+    anger_data, fear_data, joy_data, sadness_data = clf._build_train_data(input_file)
     
     shuffle(anger_data) 
     shuffle(fear_data) #把文本的排列随机化  
@@ -114,13 +150,16 @@ if __name__ == "__main__":
     
     #MultinomialNB() LogisticRegression  LinearSVC NuSVC 
     clf = clf.train(train, BernoulliNB())
-    predicted_label = clf.predict(data)
+    predicted_label = clf.predict_many(data)
     print("预测类别为:", predicted_label)
     print("真是类别为", tag)
     score =  clf.acc_score(predicted_label, tag)
     
     print('accuracy is %f'  %score)
     
-"""
-https://www.jianshu.com/p/158c3f02a15b
-"""
+    row_data, test_sentences = clf._build_test_data("../data/test.json")
+    test_sentences = tuple(test_sentences)
+    
+    test_predict = clf.predict_many(test_sentences)
+    
+    predict_result = clf.simulation_data(row_data, test_predict)
